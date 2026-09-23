@@ -8,8 +8,7 @@ from app.utils.lactose_terms import analisar_texto
 scan_bp = Blueprint("scan", __name__, url_prefix="/scan")
 
 
-# RF06/RF07/RF08 - Recebe o texto já extraído pelo OCR (front-end/Google ML Kit),
-# analisa a presença de lactose e registra o resultado no histórico.
+# OCR
 @scan_bp.route("/analyze", methods=["POST"])
 @jwt_required()
 def analyze_scan():
@@ -48,7 +47,7 @@ def analyze_scan():
     ), 201
 
 
-# RF09 - Sistema armazena/exibe histórico de rótulos escaneados
+# Histórico de produtos analisados
 @scan_bp.route("/history", methods=["GET"])
 @jwt_required()
 def get_history():

@@ -19,8 +19,7 @@ def get_profile():
     return jsonify(usuario.to_dict()), 200
 
 
-# RF04 - Usuário consegue editar seu perfil com foto e nome
-# Segue o caso de uso: exige a senha atual para confirmar a alteração.
+# Edição do Perfil
 @user_bp.route("/profile", methods=["PUT"])
 @jwt_required()
 def update_profile():
@@ -35,9 +34,7 @@ def update_profile():
     if nome:
         usuario.nome = nome.strip()
 
-    restricoes = request.form.get("restricoes")  # ex: "lactose,gluten" (opcional)
-    if restricoes is not None:
-        usuario.restricoes = [r.strip() for r in restricoes.split(",") if r.strip()]
+ 
 
     foto = request.files.get("foto")
     if foto and foto.filename:
@@ -57,7 +54,7 @@ def update_profile():
     return jsonify({"mensagem": "Perfil atualizado com sucesso.", "usuario": usuario.to_dict()}), 200
 
 
-# RF05 - Usuário pode excluir a própria conta
+# Exclusão da conta do usuário
 @user_bp.route("/account", methods=["DELETE"])
 @jwt_required()
 def delete_account():
@@ -73,7 +70,7 @@ def delete_account():
     jti = get_jwt()["jti"]
     jwt_blocklist.add(jti)
 
-    db.session.delete(usuario)  # cascade remove o histórico vinculado (ver model User)
+    db.session.delete(usuario)  
     db.session.commit()
 
     return jsonify({"mensagem": "Conta excluída com sucesso."}), 200

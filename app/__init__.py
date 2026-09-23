@@ -16,8 +16,7 @@ def create_app(config_name: str = "development") -> Flask:
     migrate.init_app(app, db)
     bcrypt.init_app(app)
     jwt.init_app(app)
-    cors.init_app(app)  # em produção, restrinja origins conforme o domínio do app
-
+    cors.init_app(app)  
     # Garante que a pasta de uploads exista
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 

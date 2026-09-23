@@ -15,7 +15,7 @@ from app.utils.validators import email_valido
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 
-# RF01 - Usuário realiza cadastro no sistema
+# Cadastro
 @auth_bp.route("/register", methods=["POST"])
 def register():
     dados = request.get_json(silent=True) or {}
@@ -36,7 +36,7 @@ def register():
     if len(senha) < 6:
         return jsonify({"erro": "A senha deve ter ao menos 6 caracteres."}), 400
 
-    # E-mail deve ser único (Tabela 4 - Caso de uso Fazer Cadastro)
+    # E-mail deve ser único
     if User.query.filter_by(email=email).first():
         return jsonify({"erro": "Já existe uma conta cadastrada com este e-mail."}), 409
 
@@ -49,7 +49,7 @@ def register():
     return jsonify({"mensagem": "Cadastro realizado com sucesso.", "usuario": novo_usuario.to_dict()}), 201
 
 
-# RF02 - Usuário efetua login com credenciais cadastradas
+# Login
 @auth_bp.route("/login", methods=["POST"])
 def login():
     dados = request.get_json(silent=True) or {}
@@ -72,7 +72,7 @@ def login():
     ), 200
 
 
-# RF03 (parte 1) - Solicitar recuperação de senha
+# esqueci minha senha
 @auth_bp.route("/forgot-password", methods=["POST"])
 def forgot_password():
     dados = request.get_json(silent=True) or {}
@@ -80,10 +80,7 @@ def forgot_password():
 
     usuario = User.query.filter_by(email=email).first()
 
-    # Mensagem genérica quando o e-mail não existe, para não vazar quais
-    # e-mails estão cadastrados (boa prática de segurança / LGPD - RNF01).
-    # O TG especifica o retorno "E-mail não cadastrado" no fluxo alternativo,
-    # então seguimos o comportamento descrito lá.
+ 
     if not usuario:
         return jsonify({"erro": "E-mail não cadastrado."}), 404
 
@@ -101,7 +98,7 @@ def forgot_password():
     return jsonify({"mensagem": "Código de recuperação enviado para o e-mail cadastrado."}), 200
 
 
-# RF03 (parte 2) - Confirmar código e definir nova senha
+# Resetar Senha
 @auth_bp.route("/reset-password", methods=["POST"])
 def reset_password():
     dados = request.get_json(silent=True) or {}
@@ -132,7 +129,7 @@ def reset_password():
     return jsonify({"mensagem": "Senha redefinida com sucesso."}), 200
 
 
-# RF: Fazer Logoff — invalida o token atual
+# Logoff
 @auth_bp.route("/logout", methods=["POST"])
 @jwt_required()
 def logout():
