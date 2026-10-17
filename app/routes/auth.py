@@ -61,7 +61,7 @@ def login():
     if not usuario or not usuario.checar_senha(senha):
         return jsonify({"erro": "E-mail ou senha inválidos."}), 401
 
-    token_acesso = create_access_token(identity=usuario.id)
+    token_acesso = create_access_token(identity=str(usuario.id))
 
     return jsonify(
         {

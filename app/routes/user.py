@@ -15,7 +15,7 @@ user_bp = Blueprint("user", __name__, url_prefix="/user")
 @user_bp.route("/profile", methods=["GET"])
 @jwt_required()
 def get_profile():
-    usuario = User.query.get_or_404(get_jwt_identity())
+    usuario = User.query.get_or_404(int(get_jwt_identity()))
     return jsonify(usuario.to_dict()), 200
 
 
@@ -23,7 +23,7 @@ def get_profile():
 @user_bp.route("/profile", methods=["PUT"])
 @jwt_required()
 def update_profile():
-    usuario = User.query.get_or_404(get_jwt_identity())
+    usuario = User.query.get_or_404(int(get_jwt_identity()))
 
     # multipart/form-data por causa do upload de foto (arquivo + campos de texto)
     senha_atual = request.form.get("senha_atual") or ""
@@ -58,7 +58,7 @@ def update_profile():
 @user_bp.route("/account", methods=["DELETE"])
 @jwt_required()
 def delete_account():
-    usuario = User.query.get_or_404(get_jwt_identity())
+    usuario = User.query.get_or_404(int(get_jwt_identity()))
 
     dados = request.get_json(silent=True) or {}
     senha = dados.get("senha") or ""

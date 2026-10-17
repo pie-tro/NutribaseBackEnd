@@ -12,7 +12,7 @@ scan_bp = Blueprint("scan", __name__, url_prefix="/scan")
 @scan_bp.route("/analyze", methods=["POST"])
 @jwt_required()
 def analyze_scan():
-    usuario_id = get_jwt_identity()
+    usuario_id = int(get_jwt_identity())
     dados = request.get_json(silent=True) or {}
 
     texto_ocr = dados.get("texto_ocr") or ""
@@ -51,7 +51,7 @@ def analyze_scan():
 @scan_bp.route("/history", methods=["GET"])
 @jwt_required()
 def get_history():
-    usuario_id = get_jwt_identity()
+    usuario_id = int(get_jwt_identity())
 
     registros = (
         ScanHistory.query.filter_by(usuario_id=usuario_id)
@@ -66,7 +66,7 @@ def get_history():
 @scan_bp.route("/history/<int:registro_id>", methods=["GET"])
 @jwt_required()
 def get_history_detail(registro_id):
-    usuario_id = get_jwt_identity()
+    usuario_id = int(get_jwt_identity())
 
     registro = ScanHistory.query.filter_by(id=registro_id, usuario_id=usuario_id).first()
     if not registro:
