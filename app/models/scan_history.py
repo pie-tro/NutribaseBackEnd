@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.extensions import db
-
+from sqlalchemy.dialects.postgresql import JSONB
 
 class ScanHistory(db.Model):
 
@@ -12,7 +12,7 @@ class ScanHistory(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=False, index=True)
     nome_produto = db.Column(db.String(150), nullable=False)
     resultado = db.Column(db.String(20), nullable=False)  # "seguro" | "prejudicial"
-    detalhes = db.Column(db.JSON, nullable=False, default=dict)
+    detalhes = db.Column(JSONB, nullable=False, default=dict)
   
     criado_em = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
