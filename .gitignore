@@ -8,3 +8,4 @@ uploads/profile_photos/*
 !uploads/profile_photos/.gitkeep
 .DS_Store
 migrations/versions/*.pyc
+.env
