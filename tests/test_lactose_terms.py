@@ -8,7 +8,7 @@ def resultado(texto):
 
 
 class TestFalsosPositivos(unittest.TestCase):
-
+    """Rótulos SEM lactose que não podem ser marcados como prejudiciais."""
 
     def test_leites_vegetais(self):
         for texto in [
@@ -52,12 +52,12 @@ class TestFalsosPositivos(unittest.TestCase):
                 self.assertEqual(resultado(texto), "seguro")
 
     def test_palavras_parecidas(self):
-
+        # \b impede casar dentro de outras palavras
         self.assertEqual(resultado("natalino, mantegal, filmes"), "seguro")
 
 
 class TestContinuaDetectando(unittest.TestCase):
-
+    """Nada disso pode virar falso negativo (é o erro perigoso)."""
 
     def test_termos_basicos(self):
         for texto in [
@@ -85,17 +85,17 @@ class TestContinuaDetectando(unittest.TestCase):
         self.assertEqual(resultado("LEITE   \n  INTEGRAL"), "prejudicial")
 
     def test_vegetal_junto_com_leite_de_verdade(self):
- 
+        # exclui só a frase vegetal; o leite real continua sendo detectado
         r = analisar_texto("leite de coco, leite em pó, açúcar")
         self.assertEqual(r["resultado"], "prejudicial")
         self.assertIn("leite em po", r["termos_encontrados"])
 
     def test_sem_lactose_mas_com_leite(self):
-   
+        # declaração "zero/sem lactose" vale para o rótulo todo
         self.assertEqual(resultado("sem lactose. Ingredientes: soro de leite"), "seguro")
         self.assertEqual(resultado("Whey Protein Isolado Zero Lactose. proteína do soro do leite"), "seguro")
         self.assertEqual(resultado("leite desnatado lactose free"), "seguro")
-
+        # ...mas "lactose" como ingrediente ou aviso continua valendo
         self.assertEqual(resultado("zero lactose. Ingredientes: lactose, açúcar"), "prejudicial")
         self.assertEqual(resultado("whey protein concentrado"), "prejudicial")
 
@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
 
 class TestContaminacaoCruzada(unittest.TestCase):
-
+    """Advertência de traços (RDC 727/2022) não é ingrediente: vira "atencao"."""
 
     def test_pode_conter_leite_vira_atencao(self):
         for texto in [
@@ -134,18 +134,18 @@ class TestContaminacaoCruzada(unittest.TestCase):
                 self.assertEqual(resultado(texto), "atencao")
 
     def test_ingrediente_real_continua_prejudicial(self):
-
+        # "contém leite" é declaração de ingrediente, não de traços
         self.assertEqual(
             resultado("Ingredientes: leite em pó, açúcar. ALÉRGICOS: CONTÉM LEITE."), "prejudicial"
         )
         self.assertEqual(
             resultado("ALÉRGICOS: CONTÉM LEITE E DERIVADOS. PODE CONTER SOJA."), "prejudicial"
         )
-
+        # ingrediente lácteo + aviso de traços continua prejudicial
         self.assertEqual(
             resultado("Ingredientes: farinha, manteiga. Pode conter leite."), "prejudicial"
         )
-
+        # OCR sem pontuação: o trecho da advertência para em "ingredientes"
         self.assertEqual(
             resultado("pode conter leite ingredientes: leite em po, acucar"), "prejudicial"
         )
@@ -164,3 +164,56 @@ class TestContaminacaoCruzada(unittest.TestCase):
         r = analisar_texto("Zero lactose. Pode conter leite.")
         self.assertEqual(r["resultado"], "seguro")
         self.assertEqual(r["advertencias"], ["pode conter leite"])
+
+
+class TestRotulosEmIngles(unittest.TestCase):
+    """Suplementos e produtos importados trazem avisos e ingredientes em inglês."""
+
+    def test_aviso_de_instalacao_compartilhada_vira_atencao(self):
+        for texto in [
+            "ALLERGEN WARNING: This product was made in a facility that also processes milk, egg, peanuts and soy.",
+            "May contain milk and soy.",
+            "Contains traces of milk.",
+            "Manufactured in a facility that processes peanuts, tree nuts and milk.",
+            "Produced on shared equipment with milk products.",
+            "made in a facility that also\nprocesses milk, egg, peanuts and soy.",
+        ]:
+            with self.subTest(texto=texto):
+                self.assertEqual(resultado(texto), "atencao")
+
+    def test_rotulo_de_creatina_em_dois_idiomas(self):
+        texto = (
+            "INGREDIENTS: Creatine Monohydrate. GLUTEN FREE. ALLERGEN WARNING: This product was made in a "
+            "facility that also processes milk, egg, peanuts and soy. INGREDIENTES: Creatina Monohidratada. "
+            "NÃO CONTÉM GLÚTEN. ALÉRGICOS: PODE CONTER AMENDOIM, LEITE, SOJA E OVO."
+        )
+        r = analisar_texto(texto)
+        self.assertEqual(r["resultado"], "atencao")
+        self.assertEqual(r["termos_encontrados"], [])
+        self.assertEqual(len(r["advertencias"]), 2)
+
+    def test_ingrediente_em_ingles_continua_prejudicial(self):
+        for texto in [
+            "Ingredients: milk powder, sugar. Made in a facility that also processes soy.",
+            "Ingredients: processed cheese, sugar. May contain soy.",
+            "CONTAINS: MILK, SOY",
+            "Ingredients: whey protein, cocoa. Made in a facility that also processes soy.",
+        ]:
+            with self.subTest(texto=texto):
+                self.assertEqual(resultado(texto), "prejudicial")
+
+    def test_made_in_pais_nao_e_aviso(self):
+        self.assertEqual(resultado("Made in Brazil. Ingredients: creatine monohydrate."), "seguro")
+        self.assertEqual(resultado("Made in Italy with fresh milk and butter"), "prejudicial")
+
+    def test_vegetais_e_livres_de_leite_em_ingles(self):
+        for texto in [
+            "Ingredients: coconut milk, water",
+            "almond milk, sugar",
+            "Ingredients: cocoa butter, sugar",
+            "peanut butter, salt",
+            "Dairy free. Ingredients: oat milk, water",
+            "Milk-free formula",
+        ]:
+            with self.subTest(texto=texto):
+                self.assertEqual(resultado(texto), "seguro")
