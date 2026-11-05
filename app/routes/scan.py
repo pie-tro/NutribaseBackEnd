@@ -1,9 +1,10 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from app.extensions import db
+from app.extensions import db, limiter
 from app.models import ScanHistory
 from app.utils.lactose_terms import analisar_texto
+from app.utils.validators import PRODUTO_MAX, TEXTO_OCR_MAX
 
 scan_bp = Blueprint("scan", __name__, url_prefix="/scan")
 
@@ -11,6 +12,7 @@ scan_bp = Blueprint("scan", __name__, url_prefix="/scan")
 # OCR
 @scan_bp.route("/analyze", methods=["POST"])
 @jwt_required()
+@limiter.limit("60 per minute")
 def analyze_scan():
     usuario_id = int(get_jwt_identity())
     dados = request.get_json(silent=True) or {}
@@ -24,6 +26,12 @@ def analyze_scan():
     if not nome_produto:
         return jsonify({"erro": "É necessário informar o nome do produto para salvar no histórico."}), 400
 
+    if len(texto_ocr) > TEXTO_OCR_MAX:
+        return jsonify({"erro": "O texto lido é grande demais para análise."}), 413
+
+    if len(nome_produto) > PRODUTO_MAX:
+        return jsonify({"erro": f"O nome do produto deve ter no máximo {PRODUTO_MAX} caracteres."}), 400
+
     analise = analisar_texto(texto_ocr)
 
     registro = ScanHistory(
@@ -33,6 +41,8 @@ def analyze_scan():
         detalhes={
             "texto_analisado": texto_ocr,
             "termos_encontrados": analise["termos_encontrados"],
+            "termos_ignorados": analise["termos_ignorados"],
+            "advertencias": analise.get("advertencias", []),
         },
     )
     db.session.add(registro)
@@ -40,8 +50,9 @@ def analyze_scan():
 
     return jsonify(
         {
-            "resultado": analise["resultado"],  # "seguro" | "prejudicial"
+            "resultado": analise["resultado"],  # "seguro" | "atencao" | "prejudicial"
             "termos_encontrados": analise["termos_encontrados"],
+            "advertencias": analise.get("advertencias", []),
             "registro": registro.to_dict(),
         }
     ), 201

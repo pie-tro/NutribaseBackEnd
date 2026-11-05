@@ -31,7 +31,6 @@ TERMOS_LACTOSE = [
     "gordura lactea",
     "gordura butirica",
     "contem leite",
-    "pode conter leite",
     "extrato lacteo",
     "composto lacteo",
     "bebida lactea",
@@ -77,7 +76,6 @@ TERMOS_LACTOSE = [
     "butter",
 ]
 
-
 _VEGETAIS = (
     r"coco|amendoas?|amendoim|aveia|soja|arroz|castanhas?(?: de caju| do para)?|"
     r"macadamia|babacu|gergelim|quinoa|avela|nozes|pistache|cevada|milho|"
@@ -104,37 +102,86 @@ NEGACOES = DECLARACOES_LACTOSE + [
     r"(?:nao contem|sem|livre de|isento de|isenta de) leite",
 ]
 
+
+GATILHOS_TRACOS = [
+    r"pode[m]? conter",
+    r"podera conter",
+    r"contem tracos",
+    r"tracos de",
+    r"(?:fabricado|produzido|processado|elaborado|manipulado|embalado) (?:em|no|na|num|numa)",
+    r"(?:em|numa?) (?:equipamento|linha|local|industria|fabrica|ambiente)s? que",
+]
+
+_FIM_ADVERTENCIA = re.compile(r"[.;|]|\bingredientes\b|\bcontem:|\balergicos: contem\b")
+_LIMITE_ADVERTENCIA = 110
+
 _EXCLUSOES_RE = [re.compile(r"\b" + p + r"\b") for p in EXCLUSOES]
 _NEGACOES_RE = [re.compile(r"\b" + p + r"(?!\w)") for p in NEGACOES]
 _DECLARACOES_RE = [re.compile(r"\b" + p + r"(?!\w)") for p in DECLARACOES_LACTOSE]
+_TRACOS_RE = [re.compile(r"\b" + g) for g in GATILHOS_TRACOS]
 
 
 def _normalizar(texto: str) -> str:
+
     texto = texto.lower()
     texto = unicodedata.normalize("NFKD", texto)
     texto = "".join(c for c in texto if not unicodedata.combining(c))
+
     texto = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", texto)
+
     texto = re.sub(r"\s+", " ", texto)
     return texto.strip()
 
 
-def analisar_texto(texto_ocr: str) -> dict:
-    texto = _normalizar(texto_ocr or "")
+def _tem_termo_lacteo(trecho: str) -> bool:
+    for termo in TERMOS_LACTOSE:
+        if re.search(r"\b" + re.escape(_normalizar(termo)) + r"s?\b", trecho):
+            return True
+    return False
 
+
+def _extrair_advertencias(texto: str):
+
+    trechos = []
+    for padrao in _TRACOS_RE:
+        for m in padrao.finditer(texto):
+            bruto = texto[m.start() : m.start() + _LIMITE_ADVERTENCIA]
+            fim = _FIM_ADVERTENCIA.search(bruto, 1)
+            if fim:
+                bruto = bruto[: fim.start()]
+            if _tem_termo_lacteo(bruto):
+                trechos.append((m.start(), m.start() + len(bruto)))
+
+    unidos = []
+    for ini, fim in sorted(trechos):
+        if unidos and ini <= unidos[-1][1]:
+            unidos[-1] = (unidos[-1][0], max(unidos[-1][1], fim))
+        else:
+            unidos.append((ini, fim))
+
+    advertencias = [texto[i:f].strip() for i, f in unidos]
+    for ini, fim in reversed(unidos): 
+        texto = texto[:ini] + " " + texto[fim:]
+    return texto, advertencias
+
+
+def analisar_texto(texto_ocr: str) -> dict:
+
+    texto = _normalizar(texto_ocr or "")
 
     ignorados = []
     for padrao in _EXCLUSOES_RE + _NEGACOES_RE:
         for m in padrao.finditer(texto):
             ignorados.append(m.group(0))
         texto = padrao.sub(" ", texto)
-
-
+    texto, advertencias = _extrair_advertencias(texto)
     declarou = any(p.search(_normalizar(texto_ocr or "")) for p in _DECLARACOES_RE)
     if declarou and not re.search(r"\blactose\b", texto):
         return {
             "resultado": "seguro",
             "termos_encontrados": [],
             "termos_ignorados": sorted(set(ignorados)),
+            "advertencias": advertencias,
             "declarou_sem_lactose": True,
         }
 
@@ -145,10 +192,16 @@ def analisar_texto(texto_ocr: str) -> dict:
         if re.search(padrao, texto):
             termos_encontrados.append(termo)
 
-    contem_lactose = len(termos_encontrados) > 0
+    if termos_encontrados:
+        resultado = "prejudicial"
+    elif advertencias:
+        resultado = "atencao"
+    else:
+        resultado = "seguro"
 
     return {
-        "resultado": "prejudicial" if contem_lactose else "seguro",
+        "resultado": resultado,
         "termos_encontrados": termos_encontrados,
         "termos_ignorados": sorted(set(ignorados)),
+        "advertencias": advertencias,
     }
