@@ -11,7 +11,7 @@ class ScanHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=False, index=True)
     nome_produto = db.Column(db.String(150), nullable=False)
-    resultado = db.Column(db.String(20), nullable=False)  # "seguro" | "prejudicial"
+    resultado = db.Column(db.String(20), nullable=False)  # "seguro" | "atencao" | "prejudicial"
     detalhes = db.Column(JSONB, nullable=False, default=dict)
   
     criado_em = db.Column(db.DateTime, default=datetime.utcnow, index=True)

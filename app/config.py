@@ -43,6 +43,16 @@ class Config:
         os.getenv("PASSWORD_RESET_CODE_EXPIRES_MINUTES", 15)
     )
 
+    PASSWORD_RESET_MAX_ATTEMPTS = int(os.getenv("PASSWORD_RESET_MAX_ATTEMPTS", 5))
+
+    # Limite de tentativas (Flask-Limiter)
+    RATELIMIT_ENABLED = os.getenv("RATELIMIT_ENABLED", "true").lower() == "true"
+    RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
+    RATELIMIT_HEADERS_ENABLED = True
+
+
+    CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()]
+
 
 class DevelopmentConfig(Config):
     DEBUG = True
@@ -51,9 +61,12 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     DEBUG = False
 
+    MAIL_SIMULATION = False
+
 
 class TestingConfig(Config):
     TESTING = True
+    RATELIMIT_ENABLED = False
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "TEST_DATABASE_URL", "postgresql://nutribase:nutribase@localhost:5432/nutribase_test_db"
     )
