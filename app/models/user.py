@@ -24,7 +24,7 @@ class User(db.Model):
         "PasswordResetToken", backref="usuario", cascade="all, delete-orphan", lazy=True
     )
 
-    # --- Senha ---
+
     def set_senha(self, senha_texto_puro: str) -> None:
         self.senha_hash = bcrypt.generate_password_hash(senha_texto_puro).decode("utf-8")
 
@@ -55,6 +55,7 @@ class PasswordResetToken(db.Model):
     token = db.Column(db.String(36), default=lambda: str(uuid.uuid4()), unique=True)
     expira_em = db.Column(db.DateTime, nullable=False)
     usado = db.Column(db.Boolean, default=False)
+    tentativas = db.Column(db.Integer, nullable=False, default=0, server_default="0")
 
     def esta_valido(self) -> bool:
         return not self.usado and datetime.utcnow() < self.expira_em
