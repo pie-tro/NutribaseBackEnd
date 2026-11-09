@@ -1,4 +1,7 @@
+"""Testes da API (sem precisar do PostgreSQL: usam SQLite em memória).
 
+Rodar:  python -m unittest discover -s tests -v
+"""
 import io
 import os
 import shutil
@@ -16,7 +19,7 @@ from app.models import PasswordResetToken, User
 
 
 @compiles(JSONB, "sqlite")
-def _jsonb_no_sqlite(_type, _compiler, **_kw): 
+def _jsonb_no_sqlite(_type, _compiler, **_kw):  
     return "JSON"
 
 
@@ -36,7 +39,7 @@ class ApiTestCase(unittest.TestCase):
         }
         cfg.UPLOAD_FOLDER = cls.pasta_uploads
         cfg.MAIL_SIMULATION = True
-        cfg.RATELIMIT_ENABLED = True 
+        cfg.RATELIMIT_ENABLED = True  
         cls.app = create_app("testing")
 
     @classmethod
@@ -58,10 +61,9 @@ class ApiTestCase(unittest.TestCase):
         for f in os.listdir(self.pasta_uploads):
             os.remove(os.path.join(self.pasta_uploads, f))
 
-    # -------- helpers --------
     def registrar(self, email="a@teste.com", senha=SENHA, nome="Ana"):
         return self.c.post("/auth/register", json={
-            "nome": nome, "email": email, "senha": senha, "confirmar_senha": senha})
+            "nome": nome, "email": email, "senha": senha, "confirmar_senha": senha, "aceite_politica": True})
 
     def logar(self, email="a@teste.com", senha=SENHA):
         r = self.c.post("/auth/login", json={"email": email, "senha": senha})
@@ -80,6 +82,20 @@ class TestCadastroLogin(ApiTestCase):
         self.assertEqual(self.logar().status_code, 200)
         self.assertEqual(self.logar(senha="errada1").status_code, 401)
         self.assertEqual(self.logar(email="x@x.com").status_code, 401)
+
+    def test_cadastro_exige_aceite_da_politica_de_privacidade(self):
+        base = {"nome": "Ana", "email": "a@teste.com", "senha": SENHA, "confirmar_senha": SENHA}
+        for extra in [{}, {"aceite_politica": False}, {"aceite_politica": "true"}]:
+            with self.subTest(extra=extra):
+                r = self.c.post("/auth/register", json={**base, **extra})
+                self.assertEqual(r.status_code, 400)
+                self.assertIn("Política de Privacidade", r.get_json()["erro"])
+        self.assertEqual(self.c.post("/auth/register", json={**base, "aceite_politica": True}).status_code, 201)
+
+    def test_aceite_da_politica_fica_registrado(self):
+        from app.models.user import User
+        self.registrar()
+        self.assertIsNotNone(User.query.filter_by(email="a@teste.com").first().aceitou_politica_em)
 
     def test_regra_de_senha_no_cadastro(self):
         for fraca in ["abc@1", "senhasenha", "senha1234", "senha@@@@", "12345678!", "Senha 1234"]:
@@ -102,7 +118,7 @@ class TestCadastroLogin(ApiTestCase):
         longa = "Aa1!" * 19  # 76 bytes
         self.assertEqual(self.registrar(senha=longa).status_code, 400)
         self.registrar()
-        self.assertEqual(self.logar(senha=longa).status_code, 401)
+        self.assertEqual(self.logar(senha=longa).status_code, 401)  
 
     def test_limites_de_tamanho(self):
         self.assertEqual(self.registrar(nome="n" * 121).status_code, 400)
@@ -149,7 +165,7 @@ class TestRecuperacaoDeSenha(ApiTestCase):
         self.assertEqual(len(t.codigo), 6)
         self.assertEqual(self.reset(t.codigo).status_code, 200)
         self.assertEqual(self.logar(senha="NovaSenha@1").status_code, 200)
-        self.assertEqual(self.reset(t.codigo).status_code, 400) 
+        self.assertEqual(self.reset(t.codigo).status_code, 400)  
 
     def test_email_inexistente_no_reset_nao_revela_nada(self):
         r = self.reset("123456", email="naoexiste@teste.com")
@@ -164,9 +180,9 @@ class TestRecuperacaoDeSenha(ApiTestCase):
         errado = "000000" if certo != "000000" else "111111"
         for _ in range(5):
             self.assertEqual(self.reset(errado).status_code, 400)
-
+        # agora nem o código certo funciona mais
         self.assertEqual(self.reset(certo).status_code, 400)
-        self.assertEqual(self.logar(senha=SENHA).status_code, 200)  
+        self.assertEqual(self.logar(senha=SENHA).status_code, 200) 
 
     def test_novo_pedido_invalida_o_codigo_anterior(self):
         self.registrar()
@@ -204,13 +220,13 @@ class TestFotoDePerfil(ApiTestCase):
         self.assertEqual(len(os.listdir(self.pasta_uploads)), 1)
         r2 = self.enviar_foto(h, PNG_MINIMO)
         self.assertEqual(r2.status_code, 200)
-        self.assertEqual(len(os.listdir(self.pasta_uploads)), 1) 
+        self.assertEqual(len(os.listdir(self.pasta_uploads)), 1)  
         self.assertNotEqual(r1.get_json()["usuario"]["foto_perfil"],
                             r2.get_json()["usuario"]["foto_perfil"])
 
     def test_extensao_vem_do_conteudo_nao_do_nome(self):
         h = self.auth()
-        r = self.enviar_foto(h, PNG_MINIMO, "foto.jpg")  # PNG disfarçado de .jpg
+        r = self.enviar_foto(h, PNG_MINIMO, "foto.jpg")  
         self.assertTrue(r.get_json()["usuario"]["foto_perfil"].endswith(".png"))
 
     def test_senha_errada_nao_altera_nada(self):
@@ -234,7 +250,7 @@ class TestFotoDePerfil(ApiTestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(os.listdir(self.pasta_uploads), [])
         self.assertEqual(User.query.count(), 0)
-        self.assertEqual(self.c.get("/user/profile", headers=h).status_code, 401)  # token revogado
+        self.assertEqual(self.c.get("/user/profile", headers=h).status_code, 401) 
 
 
 class TestEscaneamento(ApiTestCase):

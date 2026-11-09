@@ -1,3 +1,4 @@
+from datetime import datetime
 import secrets
 
 from flask import Blueprint, current_app, jsonify, request
@@ -48,6 +49,9 @@ def register():
     if not nome or not email or not senha:
         return jsonify({"erro": "Nome, e-mail e senha são obrigatórios."}), 400
 
+    if dados.get("aceite_politica") is not True:
+        return jsonify({"erro": "É necessário aceitar a Política de Privacidade para criar a conta."}), 400
+
     if len(nome) > NOME_MAX:
         return jsonify({"erro": f"O nome deve ter no máximo {NOME_MAX} caracteres."}), 400
 
@@ -61,16 +65,18 @@ def register():
     if erro_senha:
         return jsonify({"erro": erro_senha}), 400
 
+
     if User.query.filter_by(email=email).first():
         return jsonify({"erro": "Já existe uma conta cadastrada com este e-mail."}), 409
 
-    novo_usuario = User(nome=nome, email=email)
+    novo_usuario = User(nome=nome, email=email, aceitou_politica_em=datetime.utcnow())
     novo_usuario.set_senha(senha)
 
     db.session.add(novo_usuario)
     db.session.commit()
 
     return jsonify({"mensagem": "Cadastro realizado com sucesso.", "usuario": novo_usuario.to_dict()}), 201
+
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -88,7 +94,7 @@ def login():
         return jsonify({"erro": "E-mail ou senha inválidos."}), 401
 
     if not usuario:
-        bcrypt.check_password_hash(_hash_falso(), senha)
+        bcrypt.check_password_hash(_hash_falso(), senha)  
         return jsonify({"erro": "E-mail ou senha inválidos."}), 401
 
     if not usuario.checar_senha(senha):
@@ -115,7 +121,7 @@ def forgot_password():
 
     usuario = User.query.filter_by(email=email).first()
 
-  
+
     if not usuario:
         return jsonify({"erro": "E-mail não cadastrado."}), 404
 
@@ -154,7 +160,6 @@ def reset_password():
 
     usuario = User.query.filter_by(email=email).first()
     if not usuario:
-
         return erro_generico
 
 
@@ -174,6 +179,7 @@ def reset_password():
         db.session.commit()
         return erro_generico
 
+ 
     if not secrets.compare_digest(reset_token.codigo, codigo):
         reset_token.tentativas += 1
         if reset_token.tentativas >= maximo:
@@ -190,7 +196,6 @@ def reset_password():
     db.session.commit()
 
     return jsonify({"mensagem": "Senha redefinida com sucesso."}), 200
-
 
 
 @auth_bp.route("/logout", methods=["POST"])

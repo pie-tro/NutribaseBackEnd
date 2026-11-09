@@ -14,6 +14,7 @@ class User(db.Model):
     foto_perfil = db.Column(db.String(255), nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     atualizado_em = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    aceitou_politica_em = db.Column(db.DateTime, nullable=True)
 
    
 
@@ -24,7 +25,7 @@ class User(db.Model):
         "PasswordResetToken", backref="usuario", cascade="all, delete-orphan", lazy=True
     )
 
-
+    # --- Senha ---
     def set_senha(self, senha_texto_puro: str) -> None:
         self.senha_hash = bcrypt.generate_password_hash(senha_texto_puro).decode("utf-8")
 
